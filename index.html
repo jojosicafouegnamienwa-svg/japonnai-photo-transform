@@ -1,20 +1,231 @@
-hereindex.html<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Japonnai PCS AI</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #090909;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #aaa;
+      margin-bottom: 25px;
+    }
+
+    .card {
+      background: #151515;
+      padding: 18px;
+      border-radius: 18px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    input[type="file"],
+    textarea {
+      width: 100%;
+      padding: 12px;
+      background: #222;
+      color: white;
+      border: 1px solid #333;
+      border-radius: 10px;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      border: 0;
+      border-radius: 12px;
+      background: #e50914;
+      color: white;
+      font-size: 17px;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+    }
+
+    #status {
+      text-align: center;
+      margin: 18px 0;
+      color: #aaa;
+    }
+
+    #result {
+      display: none;
+    }
+
+    #resultImage {
+      width: 100%;
+      border-radius: 15px;
+    }
+  </style>
 </head>
+
 <body>
+
+<div class="container">
+
   <h1>Japonnai PCS AI</h1>
-  <p>Prototype de transformation photo IA</p>
 
-  <input type="file" accept="image/*">
-  <br><br>
+  <p class="subtitle">
+    Transformez vos photos avec l'intelligence artificielle
+  </p>
 
-  <input type="file" accept="image/*">
-  <br><br>
+  <div class="card">
+    <label>📷 Votre photo</label>
+    <input id="photo" type="file" accept="image/*">
+  </div>
 
-  <button>Transformer la photo</button>
+  <div class="card">
+    <label>🖼️ Photo de référence</label>
+    <input id="reference" type="file" accept="image/*">
+  </div>
+
+  <div class="card">
+    <label>✍️ Décrivez la transformation</label>
+    <textarea
+      id="description"
+      placeholder="Exemple : utilise la tenue et le style de la photo de référence tout en conservant mon visage."
+    ></textarea>
+  </div>
+
+  <button id="generateButton" onclick="generateImage()">
+    ✨ Générer la transformation
+  </button>
+
+  <div id="status"></div>
+
+  <div id="result" class="card">
+    <h2>Résultat</h2>
+    <img id="resultImage" alt="Résultat généré par Gemini">
+  </div>
+
+</div>
+
+<script>
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+      const base64 = result.split(",")[1];
+
+      resolve({
+        data: base64,
+        mimeType: file.type
+      });
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function generateImage() {
+
+  const photo = document.getElementById("photo").files[0];
+  const reference = document.getElementById("reference").files[0];
+  const description =
+    document.getElementById("description").value.trim();
+
+  const status = document.getElementById("status");
+  const button = document.getElementById("generateButton");
+  const result = document.getElementById("result");
+  const resultImage = document.getElementById("resultImage");
+
+  if (!photo) {
+    status.textContent = "Ajoutez votre photo.";
+    return;
+  }
+
+  if (!reference) {
+    status.textContent = "Ajoutez une photo de référence.";
+    return;
+  }
+
+  if (!description) {
+    status.textContent = "Décrivez la transformation souhaitée.";
+    return;
+  }
+
+  try {
+
+    button.disabled = true;
+    status.textContent = "⏳ Gemini est en train de générer votre image...";
+    result.style.display = "none";
+
+    const photoData = await fileToBase64(photo);
+    const referenceData = await fileToBase64(reference);
+
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        photo: photoData,
+        reference: referenceData,
+        description: description
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Erreur pendant la génération.");
+    }
+
+    if (!data.image) {
+      throw new Error("Aucune image n'a été retournée.");
+    }
+
+    resultImage.src = data.image;
+    result.style.display = "block";
+    status.textContent = "✅ Transformation terminée.";
+
+  } catch (error) {
+
+    console.error(error);
+    status.textContent = "❌ " + error.message;
+
+  } finally {
+
+    button.disabled = false;
+
+  }
+}
+</script>
+
 </body>
 </html>
